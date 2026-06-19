@@ -10,3 +10,7 @@ crate-type = ["cdylib"]
 oxichrome = { version = "0.1" }
 wasm-bindgen = "0.2"
 serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+
+[dev-dependencies]
+serde_json = "1"

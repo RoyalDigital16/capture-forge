@@ -1,0 +1,435 @@
+use crate::error::{RecordingError, Result};
+use serde::{Deserialize, Serialize};
+
+/// All valid states of a V0.1 recording session.
+///
+/// Transitions are enforced by `RecordingSession::transition()`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum SessionState {
+    /// No recording active. Popup ready for input.
+    Idle,
+    /// Stream acquisition in progress.
+    Starting,
+    /// 3-2-1 countdown overlay visible.
+    Countdown,
+    /// Actively capturing media.
+    Recording,
+    /// Recording paused; timer and toolbar shown.
+    Paused,
+    /// Finalising the recording — last chunk and concat.
+    Stopping,
+    /// Preview page open with the exported video.
+    Preview,
+    /// An error occurred; message and suggestion shown.
+    Error,
+    /// Service worker restart detected orphaned chunks.
+    CrashRecovery,
+}
+
+impl SessionState {
+    /// Return `true` when no active recording is in flight.
+    pub fn is_idle(&self) -> bool {
+        matches!(self, SessionState::Idle)
+    }
+
+    /// Return `true` when a recording is active or paused.
+    pub fn is_active(&self) -> bool {
+        matches!(self, SessionState::Recording | SessionState::Paused)
+    }
+}
+
+/// The central state-machine for a recording session.
+///
+/// Every state transition must go through `transition()` which validates
+/// the move against the allowed matrix.  Invalid moves return
+/// `Err(RecordingError::StateViolation)` and leave the session state
+/// unchanged.
+#[derive(Debug, Clone)]
+pub struct RecordingSession {
+    state: SessionState,
+}
+
+impl RecordingSession {
+    /// Create a new session in the `Idle` state.
+    pub fn new() -> Self {
+        Self {
+            state: SessionState::Idle,
+        }
+    }
+
+    /// Return a reference to the current state.
+    pub fn state(&self) -> &SessionState {
+        &self.state
+    }
+
+    /// Attempt a state transition.
+    ///
+    /// Returns `Ok(())` if the transition is valid, or
+    /// `Err(RecordingError::StateViolation)` otherwise.
+    /// On failure the session state is **not** modified.
+    pub fn transition(&mut self, target: SessionState) -> Result<()> {
+        let current = &self.state;
+
+        let valid = match (current, &target) {
+            // Idle
+            (SessionState::Idle, SessionState::Starting) => true,
+            (SessionState::Idle, SessionState::CrashRecovery) => true,
+
+            // Starting
+            (SessionState::Starting, SessionState::Countdown) => true,
+            (SessionState::Starting, SessionState::Error) => true,
+
+            // Countdown
+            (SessionState::Countdown, SessionState::Recording) => true,
+            (SessionState::Countdown, SessionState::Idle) => true,
+
+            // Recording
+            (SessionState::Recording, SessionState::Paused) => true,
+            (SessionState::Recording, SessionState::Stopping) => true,
+
+            // Paused
+            (SessionState::Paused, SessionState::Recording) => true,
+            (SessionState::Paused, SessionState::Stopping) => true,
+
+            // Stopping
+            (SessionState::Stopping, SessionState::Preview) => true,
+            (SessionState::Stopping, SessionState::Error) => true,
+
+            // Preview
+            (SessionState::Preview, SessionState::Idle) => true,
+
+            // Error
+            (SessionState::Error, SessionState::Idle) => true,
+
+            // CrashRecovery
+            (SessionState::CrashRecovery, SessionState::Preview) => true,
+            (SessionState::CrashRecovery, SessionState::Idle) => true,
+
+            // Everything else is invalid
+            _ => false,
+        };
+
+        if valid {
+            self.state = target;
+            Ok(())
+        } else {
+            Err(RecordingError::StateViolation {
+                details: format!("Cannot transition from {:?} to {:?}", current, target),
+            })
+        }
+    }
+}
+
+impl Default for RecordingSession {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ------------------------------------------------------------------
+    // Valid transition paths
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn test_happy_path_full_cycle() {
+        let mut s = RecordingSession::new();
+        assert_eq!(s.state(), &SessionState::Idle);
+
+        s.transition(SessionState::Starting).unwrap();
+        assert_eq!(s.state(), &SessionState::Starting);
+
+        s.transition(SessionState::Countdown).unwrap();
+        assert_eq!(s.state(), &SessionState::Countdown);
+
+        s.transition(SessionState::Recording).unwrap();
+        assert_eq!(s.state(), &SessionState::Recording);
+
+        s.transition(SessionState::Paused).unwrap();
+        assert_eq!(s.state(), &SessionState::Paused);
+
+        s.transition(SessionState::Recording).unwrap();
+        assert_eq!(s.state(), &SessionState::Recording);
+
+        s.transition(SessionState::Stopping).unwrap();
+        assert_eq!(s.state(), &SessionState::Stopping);
+
+        s.transition(SessionState::Preview).unwrap();
+        assert_eq!(s.state(), &SessionState::Preview);
+
+        s.transition(SessionState::Idle).unwrap();
+        assert_eq!(s.state(), &SessionState::Idle);
+    }
+
+    #[test]
+    fn test_starting_to_error() {
+        let mut s = RecordingSession::new();
+        s.transition(SessionState::Starting).unwrap();
+        s.transition(SessionState::Error).unwrap();
+        assert_eq!(s.state(), &SessionState::Error);
+    }
+
+    #[test]
+    fn test_countdown_cancel_to_idle() {
+        let mut s = RecordingSession::new();
+        s.transition(SessionState::Starting).unwrap();
+        s.transition(SessionState::Countdown).unwrap();
+        s.transition(SessionState::Idle).unwrap();
+        assert_eq!(s.state(), &SessionState::Idle);
+    }
+
+    #[test]
+    fn test_paused_stop() {
+        let mut s = RecordingSession::new();
+        s.transition(SessionState::Starting).unwrap();
+        s.transition(SessionState::Countdown).unwrap();
+        s.transition(SessionState::Recording).unwrap();
+        s.transition(SessionState::Paused).unwrap();
+        s.transition(SessionState::Stopping).unwrap();
+        assert_eq!(s.state(), &SessionState::Stopping);
+    }
+
+    #[test]
+    fn test_stopping_to_error() {
+        let mut s = RecordingSession::new();
+        s.transition(SessionState::Starting).unwrap();
+        s.transition(SessionState::Countdown).unwrap();
+        s.transition(SessionState::Recording).unwrap();
+        s.transition(SessionState::Stopping).unwrap();
+        s.transition(SessionState::Error).unwrap();
+        assert_eq!(s.state(), &SessionState::Error);
+    }
+
+    #[test]
+    fn test_error_to_idle() {
+        let mut s = RecordingSession::new();
+        s.transition(SessionState::Starting).unwrap();
+        s.transition(SessionState::Error).unwrap();
+        s.transition(SessionState::Idle).unwrap();
+        assert_eq!(s.state(), &SessionState::Idle);
+    }
+
+    #[test]
+    fn test_crash_recovery_flows() {
+        let mut s = RecordingSession::new();
+
+        // Idle → CrashRecovery → Preview → Idle
+        s.transition(SessionState::CrashRecovery).unwrap();
+        assert_eq!(s.state(), &SessionState::CrashRecovery);
+        s.transition(SessionState::Preview).unwrap();
+        assert_eq!(s.state(), &SessionState::Preview);
+        s.transition(SessionState::Idle).unwrap();
+        assert_eq!(s.state(), &SessionState::Idle);
+
+        // Idle → CrashRecovery → Idle (dismiss)
+        s.transition(SessionState::CrashRecovery).unwrap();
+        assert_eq!(s.state(), &SessionState::CrashRecovery);
+        s.transition(SessionState::Idle).unwrap();
+        assert_eq!(s.state(), &SessionState::Idle);
+    }
+
+    #[test]
+    fn test_new_session_is_idle() {
+        let s = RecordingSession::new();
+        assert_eq!(s.state(), &SessionState::Idle);
+    }
+
+    #[test]
+    fn test_default_is_idle() {
+        let s = RecordingSession::default();
+        assert_eq!(s.state(), &SessionState::Idle);
+    }
+
+    // ------------------------------------------------------------------
+    // Invalid transitions — each must return StateViolation
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn test_double_start_in_starting() {
+        let mut s = RecordingSession::new();
+        s.transition(SessionState::Starting).unwrap();
+        let err = s.transition(SessionState::Starting).unwrap_err();
+        assert!(matches!(err, RecordingError::StateViolation { .. }));
+        assert_eq!(s.state(), &SessionState::Starting);
+    }
+
+    #[test]
+    fn test_start_in_recording() {
+        let mut s = RecordingSession::new();
+        s.transition(SessionState::Starting).unwrap();
+        s.transition(SessionState::Countdown).unwrap();
+        s.transition(SessionState::Recording).unwrap();
+        let err = s.transition(SessionState::Starting).unwrap_err();
+        assert!(matches!(err, RecordingError::StateViolation { .. }));
+        assert_eq!(s.state(), &SessionState::Recording);
+    }
+
+    #[test]
+    fn test_start_in_paused() {
+        let mut s = RecordingSession::new();
+        s.transition(SessionState::Starting).unwrap();
+        s.transition(SessionState::Countdown).unwrap();
+        s.transition(SessionState::Recording).unwrap();
+        s.transition(SessionState::Paused).unwrap();
+        let err = s.transition(SessionState::Starting).unwrap_err();
+        assert!(matches!(err, RecordingError::StateViolation { .. }));
+        assert_eq!(s.state(), &SessionState::Paused);
+    }
+
+    #[test]
+    fn test_double_stop_in_idle() {
+        let mut s = RecordingSession::new();
+        let err = s.transition(SessionState::Stopping).unwrap_err();
+        assert!(matches!(err, RecordingError::StateViolation { .. }));
+        assert_eq!(s.state(), &SessionState::Idle);
+    }
+
+    #[test]
+    fn test_stop_in_countdown() {
+        let mut s = RecordingSession::new();
+        s.transition(SessionState::Starting).unwrap();
+        s.transition(SessionState::Countdown).unwrap();
+        let err = s.transition(SessionState::Stopping).unwrap_err();
+        assert!(matches!(err, RecordingError::StateViolation { .. }));
+        assert_eq!(s.state(), &SessionState::Countdown);
+    }
+
+    #[test]
+    fn test_stop_in_paused() {
+        let mut s = RecordingSession::new();
+        s.transition(SessionState::Starting).unwrap();
+        s.transition(SessionState::Countdown).unwrap();
+        s.transition(SessionState::Recording).unwrap();
+        s.transition(SessionState::Paused).unwrap();
+        // Paused → Stopping IS valid — verified elsewhere.  Test a clearly
+        // invalid one: Paused → Starting.
+        let err = s.transition(SessionState::Starting).unwrap_err();
+        assert!(matches!(err, RecordingError::StateViolation { .. }));
+    }
+
+    #[test]
+    fn test_pause_in_idle() {
+        let mut s = RecordingSession::new();
+        let err = s.transition(SessionState::Paused).unwrap_err();
+        assert!(matches!(err, RecordingError::StateViolation { .. }));
+        assert_eq!(s.state(), &SessionState::Idle);
+    }
+
+    #[test]
+    fn test_pause_in_countdown() {
+        let mut s = RecordingSession::new();
+        s.transition(SessionState::Starting).unwrap();
+        s.transition(SessionState::Countdown).unwrap();
+        let err = s.transition(SessionState::Paused).unwrap_err();
+        assert!(matches!(err, RecordingError::StateViolation { .. }));
+        assert_eq!(s.state(), &SessionState::Countdown);
+    }
+
+    #[test]
+    fn test_pause_in_paused() {
+        let mut s = RecordingSession::new();
+        s.transition(SessionState::Starting).unwrap();
+        s.transition(SessionState::Countdown).unwrap();
+        s.transition(SessionState::Recording).unwrap();
+        s.transition(SessionState::Paused).unwrap();
+        let err = s.transition(SessionState::Paused).unwrap_err();
+        assert!(matches!(err, RecordingError::StateViolation { .. }));
+        assert_eq!(s.state(), &SessionState::Paused);
+    }
+
+    #[test]
+    fn test_resume_in_idle() {
+        let mut s = RecordingSession::new();
+        let err = s.transition(SessionState::Recording).unwrap_err();
+        assert!(matches!(err, RecordingError::StateViolation { .. }));
+        assert_eq!(s.state(), &SessionState::Idle);
+    }
+
+    #[test]
+    fn test_resume_in_recording() {
+        let mut s = RecordingSession::new();
+        s.transition(SessionState::Starting).unwrap();
+        s.transition(SessionState::Countdown).unwrap();
+        s.transition(SessionState::Recording).unwrap();
+        // Recording → Recording is not valid (resume only works from Paused)
+        let err = s.transition(SessionState::Recording).unwrap_err();
+        assert!(matches!(err, RecordingError::StateViolation { .. }));
+        assert_eq!(s.state(), &SessionState::Recording);
+    }
+
+    #[test]
+    fn test_cancel_in_idle() {
+        let mut s = RecordingSession::new();
+        let err = s.transition(SessionState::Idle).unwrap_err();
+        assert!(matches!(err, RecordingError::StateViolation { .. }));
+        assert_eq!(s.state(), &SessionState::Idle);
+    }
+
+    #[test]
+    fn test_cancel_in_stopping() {
+        let mut s = RecordingSession::new();
+        s.transition(SessionState::Starting).unwrap();
+        s.transition(SessionState::Countdown).unwrap();
+        s.transition(SessionState::Recording).unwrap();
+        s.transition(SessionState::Stopping).unwrap();
+        // Stopping → Idle is NOT valid (must go through Preview or Error first)
+        let err = s.transition(SessionState::Idle).unwrap_err();
+        assert!(matches!(err, RecordingError::StateViolation { .. }));
+    }
+
+    #[test]
+    fn test_preview_to_starting() {
+        let mut s = RecordingSession::new();
+        s.transition(SessionState::Starting).unwrap();
+        s.transition(SessionState::Countdown).unwrap();
+        s.transition(SessionState::Recording).unwrap();
+        s.transition(SessionState::Stopping).unwrap();
+        s.transition(SessionState::Preview).unwrap();
+        let err = s.transition(SessionState::Starting).unwrap_err();
+        assert!(matches!(err, RecordingError::StateViolation { .. }));
+        assert_eq!(s.state(), &SessionState::Preview);
+    }
+
+    #[test]
+    fn test_error_to_starting() {
+        let mut s = RecordingSession::new();
+        s.transition(SessionState::Starting).unwrap();
+        s.transition(SessionState::Error).unwrap();
+        let err = s.transition(SessionState::Starting).unwrap_err();
+        assert!(matches!(err, RecordingError::StateViolation { .. }));
+        assert_eq!(s.state(), &SessionState::Error);
+    }
+
+    // ------------------------------------------------------------------
+    // State predicates
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn test_is_idle() {
+        let s = RecordingSession::new();
+        assert!(s.state().is_idle());
+        assert!(!s.state().is_active());
+    }
+
+    #[test]
+    fn test_is_active() {
+        let mut s = RecordingSession::new();
+        s.transition(SessionState::Starting).unwrap();
+        s.transition(SessionState::Countdown).unwrap();
+        s.transition(SessionState::Recording).unwrap();
+        assert!(s.state().is_active());
+    }
+
+    #[test]
+    fn test_is_active_paused() {
+        let mut s = RecordingSession::new();
+        s.transition(SessionState::Starting).unwrap();
+        s.transition(SessionState::Countdown).unwrap();
+        s.transition(SessionState::Recording).unwrap();
+        s.transition(SessionState::Paused).unwrap();
+        assert!(s.state().is_active());
+    }
+}

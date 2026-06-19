@@ -1,6 +1,10 @@
+---
+baseline_commit: 4f424600bb246fb81a2d1a4b5d8122af89686e46
+---
+
 # Story 1.1: Error System & State Machine Foundation
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -80,30 +84,30 @@ So that all recording operations have consistent error handling, valid state tra
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create `src/error.rs` — RecordingError enum (AC1, AC2)
-  - [ ] 1.1 Define `RecordingError` with `thiserror` derive and all V0.1 variants
-  - [ ] 1.2 Add `type Result<T>` alias export
-  - [ ] 1.3 Add `#[cfg(test)] mod tests` verifying Display output
-- [ ] Task 2: Create `src/recorder.rs` — SessionState + RecordingSession (AC3)
-  - [ ] 2.1 Define `SessionState` enum with all 9 V0.1 states
-  - [ ] 2.2 Define `RecordingSession` struct with `state: SessionState` and `transition()` method
-  - [ ] 2.3 Implement valid transition matrix — return `Err(StateViolation)` on invalid moves
-  - [ ] 2.4 Add `#[cfg(test)] mod tests` covering all valid and invalid transitions
-- [ ] Task 3: Create `src/messaging.rs` — ExtensionMessage enum (AC4)
-  - [ ] 3.1 Define `ExtensionMessage` with all V0.1 variants
-  - [ ] 3.2 Define `RecordingMode` enum (`FullScreen`, `Tab`)
-  - [ ] 3.3 Ensure all types derive `Debug, Clone, Serialize, Deserialize`
-  - [ ] 3.4 Add `#[cfg(test)] mod tests` verifying serde roundtrips
-- [ ] Task 4: Update `src/lib.rs` — module declarations + panic hook (AC5)
-  - [ ] 4.1 Add `mod error;`, `mod recorder;`, `mod messaging;` declarations
-  - [ ] 4.2 Install `panic::set_hook()` override in background init
-  - [ ] 4.3 Verify `#[oxichrome::extension]` permissions include `["storage"]`
-- [ ] Task 5: Update `Cargo.toml` — add `thiserror` dependency (AC1)
-  - [ ] 5.1 Add `thiserror = "2"` to `[dependencies]` with `derive` feature
-- [ ] Task 6: Verify compilation and tests
-  - [ ] 6.1 Run `cargo check` — must compile cleanly
-  - [ ] 6.2 Run `cargo test` — all tests pass
-  - [ ] 6.3 Confirm no bare `unwrap()` anywhere in new code
+- [x] Task 1: Create `src/error.rs` — RecordingError enum (AC1, AC2)
+  - [x] 1.1 Define `RecordingError` with `thiserror` derive and all V0.1 variants
+  - [x] 1.2 Add `type Result<T>` alias export
+  - [x] 1.3 Add `#[cfg(test)] mod tests` verifying Display output
+- [x] Task 2: Create `src/recorder.rs` — SessionState + RecordingSession (AC3)
+  - [x] 2.1 Define `SessionState` enum with all 9 V0.1 states
+  - [x] 2.2 Define `RecordingSession` struct with `state: SessionState` and `transition()` method
+  - [x] 2.3 Implement valid transition matrix — return `Err(StateViolation)` on invalid moves
+  - [x] 2.4 Add `#[cfg(test)] mod tests` covering all valid and invalid transitions
+- [x] Task 3: Create `src/messaging.rs` — ExtensionMessage enum (AC4)
+  - [x] 3.1 Define `ExtensionMessage` with all V0.1 variants
+  - [x] 3.2 Define `RecordingMode` enum (`FullScreen`, `Tab`)
+  - [x] 3.3 Ensure all types derive `Debug, Clone, Serialize, Deserialize`
+  - [x] 3.4 Add `#[cfg(test)] mod tests` verifying serde roundtrips
+- [x] Task 4: Update `src/lib.rs` — module declarations + panic hook (AC5)
+  - [x] 4.1 Add `mod error;`, `mod recorder;`, `mod messaging;` declarations
+  - [x] 4.2 Install `panic::set_hook()` override in background init
+  - [x] 4.3 Verify `#[oxichrome::extension]` permissions include `["storage"]`
+- [x] Task 5: Update `Cargo.toml` — add `thiserror` dependency (AC1)
+  - [x] 5.1 Add `thiserror = "2"` to `[dependencies]` with `derive` feature
+- [x] Task 6: Verify compilation and tests
+  - [x] 6.1 Run `cargo check` — must compile cleanly
+  - [x] 6.2 Run `cargo test` — all tests pass
+  - [x] 6.3 Confirm no bare `unwrap()` anywhere in new code
 
 ## Dev Notes
 
@@ -330,6 +334,14 @@ Claude Opus 4.8
 ### Debug Log References
 
 ### Completion Notes List
+
+- Implemented `RecordingError` enum with 8 variants using `thiserror` (AC1, AC2)
+- Implemented `SessionState` enum with 9 states + `RecordingSession` state machine with full transition matrix (AC3)
+- Implemented `ExtensionMessage` enum with 11 variants + `RecordingMode` enum (AC4)
+- Installed `panic::set_hook()` override in lib.rs background init (AC5)
+- Added `serde_json` as dev-dependency for test roundtrips
+- Added 43 unit tests covering: Display format for all error variants, serde roundtrips for all message types, every valid transition path, 15+ invalid transition edge cases, state predicates (is_idle, is_active)
+- All tests pass, no bare `unwrap()` in production code
 
 ### File List
 
