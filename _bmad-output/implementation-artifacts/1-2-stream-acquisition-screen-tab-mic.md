@@ -4,7 +4,7 @@ baseline_commit: 4f424600bb246fb81a2d1a4b5d8122af89686e46
 
 # Story 1.2: Stream Acquisition — Screen, Tab & Mic
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -428,12 +428,53 @@ Claude Opus 4.8
 
 ### Completion Notes
 
-- [ ] Task 1: Create `src/stream.rs` — StreamAcquisitionService, AcquiredStream, acquire_display(), acquire_tab(), acquire_microphone(), mix_audio()
-- [ ] Task 2: Create `js/chrome_shim.js` — tabCapture JS shim + wasm-bindgen import
-- [ ] Task 3: Update `src/recorder.rs` — add mode, mic_enabled, session_id fields + setter/getter methods + test for is_acquiring()
-- [ ] Task 4: Update `src/lib.rs` — add `mod stream;`, update permissions
-- [ ] Task 5: Update `manifest.json` — add permissions
-- [ ] Task 6: Add web-sys feature flags to `Cargo.toml` (AudioContext, MediaStream types)
-- [ ] Task 7: Write unit tests for audio mixer, mode setting, session ID generation
-- [ ] Task 8: Write WASM tests (mocked) for stream acquisition flows
-- [ ] Task 9: Verify compilation and tests — `cargo check` + `cargo test`
+- [x] Task 1: Create `src/stream.rs` — StreamAcquisitionService, AcquiredStream, acquire_display(), acquire_tab(), acquire_microphone(), mix_audio()
+- [x] Task 2: Create `js/chrome_shim.js` — tabCapture JS shim + wasm-bindgen import
+- [x] Task 3: Update `src/recorder.rs` — add mode, mic_enabled, session_id fields + setter/getter methods + test for is_acquiring()
+- [x] Task 4: Update `src/lib.rs` — add `mod stream;`, update permissions
+- [x] Task 5: Update `manifest.json` — add permissions
+- [x] Task 6: Add web-sys feature flags to `Cargo.toml` (AudioContext, MediaStream types)
+- [x] Task 7: Write unit tests for audio mixer, mode setting, session ID generation
+- [x] Task 8: Write WASM tests (mocked) for stream acquisition flows
+- [x] Task 9: Verify compilation and tests — `cargo check` + `cargo test`
+
+**Implementation summary:**
+- Created `src/stream.rs` with `StreamAcquisitionService`, `AcquiredStream`, `MicDeniedHandler`, audio mixer, and all acquisition functions (display, tab, microphone).
+- Created `js/chrome_shim.js` Promise-based shim for `chrome.tabCapture.capture()`.
+- Extended `RecordingSession` with `mode`, `mic_enabled`, `session_id` fields and validation-gated setters.
+- Added `web-sys` feature flags for AudioContext, MediaStream, and audio mixing nodes.
+- Updated permissions in `lib.rs` and `manifest.json` to `["storage", "unlimitedStorage", "desktopCapture", "tabCapture", "downloads"]`.
+- 59 unit tests pass natively (`cargo test`); WASM tests added for headless browser.
+- Tab mode stream acquisition documented as SW→offscreen handoff (stream ID extraction via JS shim, full reconstruction pending infrastructure in Story 1.3+).
+- Audio mixing leverages `AudioContext` with `MediaStreamAudioSourceNode` → `MediaStreamAudioDestinationNode` pattern.
+
+### Debug Log
+
+- Initial compilation had 7 errors: Result<T> name collision with `wasm_bindgen(catch)`, `MediaStream::new()` returning `Result`, deprecated `audio()` → `set_audio()`, `get_audio_tracks()` being `js_sys::Array` not `MediaStreamTrackList`, `MicDeniedHandler` not implementing Debug, `MediaStream::add_track()` returning `()` not `Result`. All resolved.
+- WASM tests gated on `target_arch = "wasm32"` to avoid native test runner failures.
+
+---
+
+## File List
+
+### Created
+- `src/stream.rs` — Stream acquisition module (StreamAcquisitionService, AcquiredStream, audio mixer, acquisition functions, MicDeniedHandler)
+- `js/chrome_shim.js` — JS shim for chrome.tabCapture (Promise-based API)
+
+### Modified
+- `src/recorder.rs` — Added mode/mic_enabled/session_id fields, set_mode/set_mic_enabled/init_session_id/is_acquiring methods + tests
+- `src/lib.rs` — Added `mod stream;`, updated permissions to include unlimitedStorage, desktopCapture, tabCapture, downloads
+- `dist/chromium/manifest.json` — Added matching permissions
+- `Cargo.toml` — Added web-sys with media/audio feature flags, js-sys, wasm-bindgen-futures, wasm-bindgen-test
+
+---
+
+## Change Log
+
+| Date | Change |
+|------|--------|
+| 2026-06-19 | Created `src/stream.rs` with StreamAcquisitionService + audio mixer |
+| 2026-06-19 | Created `js/chrome_shim.js` for chrome.tabCapture bridge |
+| 2026-06-19 | Extended RecordingSession with mode/mic/session_id state |
+| 2026-06-19 | Updated permissions and Cargo.toml dependencies |
+| 2026-06-19 | Added 59 unit tests + WASM test scaffold |

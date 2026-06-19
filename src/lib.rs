@@ -1,6 +1,7 @@
 mod error;
 mod messaging;
 mod recorder;
+mod stream;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
@@ -34,7 +35,7 @@ extern "C" {
 #[oxichrome::extension(
     name = "Capture Forge",
     version = "0.1.0",
-    permissions = ["storage"]
+    permissions = ["storage", "unlimitedStorage", "desktopCapture", "tabCapture", "downloads"]
 )]
 struct Extension;
 
