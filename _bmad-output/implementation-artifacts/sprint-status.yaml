@@ -1,0 +1,106 @@
+# generated: 2026-06-19
+# last_updated: 2026-06-19
+# project: capture-forge
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: /var/home/herold/Project/extensions/capture-forge/_bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-06-19
+last_updated: 2026-06-19
+project: capture-forge
+project_key: NOKEY
+tracking_system: file-system
+story_location: /var/home/herold/Project/extensions/capture-forge/_bmad-output/implementation-artifacts
+
+development_status:
+  # Epic 1: Recorder Core (V0.1, P0)
+  epic-1: backlog
+  1-1-error-system-state-machine-foundation: backlog
+  1-2-stream-acquisition-screen-tab-mic: backlog
+  1-3-recording-lifecycle-start-stop-pause-resume-cancel: backlog
+  1-4-chunk-writer-foundation: backlog
+  1-5-webm-export-pipeline: backlog
+  1-6-countdown-recorder-status-bar: backlog
+  1-7-preview-page-play-download-delete: backlog
+  1-8-crash-recovery-detection-restore: backlog
+  1-9-heartbeat-keepalive: backlog
+  1-10-keyboard-shortcuts: backlog
+  epic-1-retrospective: optional
+
+  # Epic 2: Resilient Storage & Recovery (V0.1→V0.2)
+  epic-2: backlog
+  2-1-session-manifest-storage-layout: backlog
+  2-2-triple-verification-integrity-report: backlog
+  2-3-stale-lock-cleanup: backlog
+  2-4-indexeddb-fallback: backlog
+  2-5-storage-manager-ui: backlog
+  2-6-quota-display: backlog
+  epic-2-retrospective: optional
+
+  # Epic 3: Recorder UX & Adoption Polish (V0.1→V0.2)
+  epic-3: backlog
+  3-1-popup-ui-mode-selection-mic-toggle-start-button: backlog
+  3-2-permission-request-handling: backlog
+  3-3-i18n-french-locale: backlog
+  3-4-configurable-keyboard-shortcuts: backlog
+  3-5-first-run-permission-onboarding: backlog
+  epic-3-retrospective: optional
+
+  # Epic 4: Overlay & Editor (P1, V0.5)
+  epic-4: backlog
+  4-1-floating-annotation-toolbar: backlog
+  4-2-canvas-annotation-tools: backlog
+  4-3-undo-redo-annotation-history: backlog
+  4-4-video-player-for-recorded-sessions: backlog
+  4-5-non-destructive-trim-mute-crop: backlog
+  4-6-export-after-editing: backlog
+  4-7-mp4-export-ffmpeg-wasm: backlog
+  4-8-gif-export-ffmpeg-wasm: backlog
+  epic-4-retrospective: optional
+
+  # Epic 5: Camera, Region & Firefox (P1→V1.0)
+  epic-5: backlog
+  5-1-camera-pip-overlay: backlog
+  5-2-camera-only-recording-page: backlog
+  5-3-region-selection-page: backlog
+  5-4-firefox-support-offscreen-to-tab-adaptation: backlog
+  5-5-firefox-permission-model-store-submission: backlog
+  5-6-i18n-18-languages: backlog
+  epic-5-retrospective: optional
+
+  # Epic 6: AI & Enrichment (P2, V2.0+)
+  epic-6: backlog
+  6-1-local-stt-transcription-sherpa-onnx: backlog
+  6-2-srt-vtt-subtitle-export: backlog
+  6-3-cloud-llm-integration-aisdk: backlog
+  6-4-dom-capture-with-privacy-filters: backlog
+  epic-6-retrospective: optional
