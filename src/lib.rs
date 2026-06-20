@@ -1,3 +1,4 @@
+mod chunk;
 mod error;
 mod lifecycle;
 mod messaging;
